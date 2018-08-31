@@ -1,0 +1,70 @@
+div.wcmcd-custom-fields-list {
+	margin-top: 50px;
+	display: block;
+	clear: both;
+	overflow: hidden;
+}
+div.wcmcd-custom-fields-list li {
+	margin-bottom: 7px;
+	padding: 10px 0px 12px 0px;
+	border-bottom: 1px solid #eee;
+	position: relative;
+}
+div.wcmcd-custom-fields-list li .wcmcd-remove-row {
+	position: absolute;
+	right: 0;
+	top: 1px;
+}
+div.wcmcd-custom-fields-wrapper {
+	display: block;
+	margin-bottom: 30px;
+	clear: both;
+	overflow: hidden;
+}
+.wcmcd-remove-row {
+	display: none;
+}
+.wcmcd-remove-wrap { display: none; }
+.wcmcd-custom-field-type {
+	display: block;
+	width: 90%;
+	margin-top: 12px;
+	padding: 10px;
+	height: 36px;
+}
+.wcmcd-custom-field-wrap { display: none; }
+.wcmcd-custom-fields-list h4 {margin: 0px 0px;}
+.wcmcd-remove-btn, .wcmcd-toggle-btn {
+	float: right;
+	width: 21px;
+	height: 16px;
+	cursor: pointer;
+	margin-left: 8px;
+}
+.wcmcd-remove-btn:before {
+	right: 10px;
+  font: 400 20px/1 dashicons;
+  speak: none;
+  display: inline-block;
+  padding: 8px 10px;
+  top: -10px;
+  position: relative;
+  content: "\f153";
+  color: red;
+}
+.wcmcd-toggle-btn:before {
+	right: 12px;
+	font: 400 20px/1 dashicons;
+	speak: none;
+	display: inline-block;
+	padding: 8px 10px;
+	top: -10px;
+	position: relative;
+	content: "\f140";
+}
+.wcmcd-custom-field-name {
+	position: relative;
+	top: 20px;
+	width: 55%;
+}
+.wcmcd-hidden-custom-fields {display: none;}
