@@ -670,10 +670,12 @@ class WooCommerce_Mailchimp_Campaign_Discount {
   }
 
   public function show_generated_form($post_id = false) {
-    $page_id = get_the_ID();
     $fields = get_post_meta($post_id, 'wcmcd_display_fields', true );
     $enable_terms_condition = get_post_meta($post_id, 'wcmcd_enable_terms_condition', true );
     $terms_condition_error_msg = get_post_meta($post_id, 'wcmcd_terms_condition_error_msg', true );
+    $custom_fields = get_post_meta($post_id, 'wcmcd_campaign_fields', true );
+
+    // print_r($custom_fields);
 
     $form = '<div class="wcmcd-form-wrapper wcmcd" >';
     $form .= '<div class="wcmd-loading"></div>';
@@ -689,6 +691,16 @@ class WooCommerce_Mailchimp_Campaign_Discount {
         $form .= '<input type="text" placeholder="'. __('Enter last name', 'wcmcd' ) .'" name="wcmcd_lname" class="wcmcd_lname">';
         
       $form .='<input type="text" placeholder="'. __('Enter your email', 'wcmcd' ) .'" name="wcmcd_email" class="wcmcd_email">';
+
+      if( isset($custom_fields['name']) ) {
+        foreach( $custom_fields['name'] as $key => $custom_field ) {
+          $field_name = trim($custom_field);
+          $field_name = str_replace(' ', '_', $custom_field);
+          $field_name = strtolower($field_name);
+
+          $form .='<input type="text" placeholder="'. __('Enter your '.$custom_field.'', 'wcmcd' ) .'" name="'.$field_name.'" class="wcmcd_custom_fields">';
+        }
+      }
 
       //checkbox for terms and conditions
       if( $enable_terms_condition == 'yes' ) :
@@ -767,31 +779,16 @@ class WooCommerce_Mailchimp_Campaign_Discount {
 
   public function wcmcd_enque_scripts_front() {
     
-    $overlay_color = get_option( 'wcmcd_pop_overlay' );
-        list($r, $g, $b) = sscanf($overlay_color, "#%02x%02x%02x");
-    $rgb_color = 'rgba('.$r.','.$g.','.$b.','.get_option( 'wcmcd_overlay_opacity' ).')';
+    
     wp_localize_script('wistia-video-control', 'wcmcd', array(
       'double_optin'    => get_option('wcmcd_double_optin'),
       'effect'          => get_option('wcmcd_popup_animation'),
       'width'           => get_option( 'wcmcd_popup_width' ),
-      'overlayColor'    => $rgb_color,
-      'delay'           => get_option( 'wcmcd_dis_seconds'),
       'success'         => do_shortcode( get_option( 'wcmcd_success_msg' ) ),
-      'cookie_length'   => get_option( 'wcmcd_cookie_length' ),
-      'wcmcd_popup'      => get_option( 'wcmcd_disable_popup' ),
       'valid_email'     => __( 'Please enter a valid email id' ),
       'enable_terms_condition' => get_option('wcmcd_terms_condition'),
       'terms_condition_error'  => get_option('wcmcd_terms_condition_error'),
       'ajax_url'        => admin_url( 'admin-ajax.php' ),
-      'exit_intent'     => get_option( 'wcmcd_exit_intent' ),
-      'hinge'           => get_option( 'wcmcd_hinge' ),
-      'overlay_click'   => get_option( 'wcmcd_overlay_click' ),
-      'btn_trigger'     => get_option( 'wcmcd_btn_trigger' ),
-      'only_btn'        => get_option( 'wcmcd_only_btn' ),
-      'close_time'      => get_option( 'wcmcd_close_seconds' ),
-      'wcmcd_home'       => get_option( 'wcmcd_home' ),
-      'disable_popup_on_mobile' => get_option('wcmcd_disable_mobile_popup'),
-      'is_home'         => is_front_page(),
       'signup_redirect' => get_option('wcmcd_signup_redirect'),
       'redirect_url'    => get_option('wcmcd_redirect_url'),
       'redirect_timeout' => get_option('wcmcd_redirect_timeout'),
@@ -1158,12 +1155,17 @@ class WooCommerce_Mailchimp_Campaign_Discount {
   * @param boolean $public the field should be public or not.
   *
   */
-  public function check_merge_field($merge_var, $merge_field, $public) {
+  public function check_merge_field($listId, $merge_var, $merge_field, $public) {
     if( !empty($merge_field) ) {
+      $merge_field = trim($merge_field);
+      $merge_field = str_replace('_', ' ', $merge_field);
       $apiKey = get_option( 'wcmcd_api_key' );
-      $listId = get_option( 'wcmcd_list_id' );
-      $mailchimp = new MGCMailChimp( $apiKey );
+      $mailchimp = new MGMailChimp( $apiKey );
+      $merge_var = trim($merge_var);
+      $merge_var = str_replace('_', '', $merge_var);
+
       $check_vars = $mailchimp->get("/lists/{$listId}/merge-fields");
+
         
       if( count($check_vars) > 0 ) {
         $tags_array = array();
@@ -1178,7 +1180,7 @@ class WooCommerce_Mailchimp_Campaign_Discount {
           $mailchimp->post("/lists/{$listId}/merge-fields",
             array(
               "tag"           => $merge_var,
-              "required"      => true,
+              "required"      => false,
               "name"          => $merge_field,
               "type"          => "text",
               "default_value" => "",
@@ -1194,9 +1196,37 @@ class WooCommerce_Mailchimp_Campaign_Discount {
   //subscribe to mailchimp newsletter through ajax
   public function wcmcd_subscribe() {
     $post_id    = isset( $_POST['post_id'] ) ? sanitize_text_field($_POST['post_id']) : '';
-    $email      = isset( $_POST['email'] ) ? sanitize_email($_POST['email']) : '';
-    $fname      = isset( $_POST['fname'] ) ? sanitize_text_field($_POST['fname']) : '';
-    $lname      = isset( $_POST['lname'] ) ? sanitize_text_field($_POST['lname']) : '';
+    $email      = '';
+    $fname      = '';
+    $lname      = '';
+    $data_val = '';
+
+    $custom_merge_vars = array();
+    if( isset($_POST) && isset($_POST['customfields']) ) {
+      $data = array();
+      foreach( $_POST['customfields'] as $key => $fields ) {
+        if( $fields['name'] !== '' 
+          && $fields['name'] !== 'wcmcd_email'
+          && $fields['name'] !== 'wcmcd_fname'
+          && $fields['name'] !== 'wcmcd_lname' ) {
+          $data_val = trim($_POST['customfields'][$key]['name']);
+          $data_val = str_replace('_', '', $_POST['customfields'][$key]['name']);
+          $data[$data_val] = $_POST['customfields'][$key]['value'];
+          array_push($custom_merge_vars, $_POST['customfields'][$key]['name']);
+        }
+        if( $fields['name'] == 'wcmcd_email' ) {
+          $email = $_POST['customfields'][$key]['value'];
+        }
+        if( $fields['name'] == 'wcmcd_fname' ) {
+          $fname = $_POST['customfields'][$key]['value'];
+        }
+        if( $fields['name'] == 'wcmcd_lname' ) {
+          $lname = $_POST['customfields'][$key]['value'];
+        }
+      }
+    }
+
+
 
     $apiKey     = get_option( 'wcmcd_api_key' );
     $listId     = get_post_meta($post_id, 'wcmcd_list_id', true);
@@ -1213,43 +1243,50 @@ class WooCommerce_Mailchimp_Campaign_Discount {
 
 
     $optin = get_option( 'wcmcd_double_optin' ) == 'yes' ? 'pending' : 'subscribed';
-    $check_merge_vars = get_option('check_wcmcd_merge_vars');
-
-    if( $optin == 'pending' && function_exists('icl_object_id') && $check_merge_vars !== 'yes' ) {
-      if( $check_merge_vars !== 'yes' ) {
-        $this->check_merge_field('wcmcdLANG', 'wcmcdlang', false);
-        update_option('check_wcmcd_merge_vars', 'yes');
-      }
-    }
-
-    if( $source == 'yes' ) {
-      //check whether the merge fields for signup has been created or not
-      if( get_option('wcmcd_source_merge_vars') !== 'yes' ) {
-        $this->check_merge_field('SOURCE', 'Signup Source', true);
-        update_option('wcmcd_source_merge_vars', 'yes');
-      }
-    }
 
 
     if( !empty( $apiKey ) && !empty( $listId ) ) {
       
-      $MailChimp = new MGCMailChimp( $apiKey );
+      $mailchimp = new MGMailChimp( $apiKey );
+
+
 
       if( $source == 'yes' ) 
-        $merge_fields = Array('FNAME' => $fname, 'LNAME' => $lname, 'wcmcdLANG' => $current_language, 'SOURCE' => $signup_source_link );
+        $merge_fields = Array('FNAME' => $fname, 'LNAME' => $lname, 'WCMDLANG' => $current_language, 'SOURCE' => $signup_source_link );
       else
-        $merge_fields = Array('FNAME' => $fname, 'LNAME' => $lname, 'wcmcdLANG' => $current_language );
+        $merge_fields = Array('FNAME' => $fname, 'LNAME' => $lname, 'WCMDLANG' => $current_language );
+
+
+      if( is_array($custom_merge_vars) && !empty($custom_merge_vars) ) {
+        foreach ($custom_merge_vars as $key => $custom_merge_var) {
+          $this->check_merge_field($listId, $custom_merge_var, $custom_merge_var, true);
+        }
+      }
+
+      $merge_vars_array = array_merge($merge_fields, $data);
+
 
       $subscriber_hash = md5(strtolower($email));
 
-      $check_member = $MailChimp->get_mailchimp_list($listId);
+      $check_member = $mailchimp->get("lists/{$listId}/members/{$subscriber_hash}", [
+        'email_address' => $email,
+        'status'        => $optin,
+        'merge_fields'  => $merge_vars_array,
+        'language'      => $current_language
+      ]);
 
 
-      if (!in_array($email, $check_member)) {
-        $res = $MailChimp->syncMailchimp($listId, $email, $fname, $lname, $optin);
-        $result['status'] = $res; 
-      }else{
-        $result['status'] = 'error'; 
+
+
+      if( is_array($check_member) && isset($check_member['status']) && $check_member['status'] == '404' ) {
+        $result = $mailchimp->post("lists/{$listId}/members", [
+          'email_address' => $email,
+          'status'        => $optin,
+          'merge_fields'  => $merge_vars_array,
+          'language'      => $current_language
+        ]);
+
+        $result['status'] = 'success'; 
       }
 
       if( is_array($check_member) && isset($check_member['status']) && $check_member['status'] == 'subscribed' ) {
@@ -1257,15 +1294,15 @@ class WooCommerce_Mailchimp_Campaign_Discount {
       }
 
       if( $result['status'] == 'error'  )
-        $result['error'] = $email . __( ' is already subscribed to the list.', 'wcmcd' );
+        $result['error'] = $email . __( ' is already subscribed to the list.', 'wcmd' );
 
       if( $result['status'] == 'success' && isset($result['title']) && $result['title'] == 'Invalid Resource' ) {
         $result['error'] = $result['detail'];
       }
 
-      if( $optin == 'subscribed' && get_option( 'wcmcd_disable_discount') != 'yes' && ( isset( $result['status'] ) && $result['status'] !='error' && !isset($result['title']) ) ) {
-        setcookie('wcmcd_'.$hash_id, 'yes', time() + (86400 * 30), "/");
-        $coupon_code = $this->wcmcd_send_coupons( $email, $current_language, $post_id );           
+         if( $optin == 'subscribed' && get_option( 'wcmcd_disable_discount') != 'yes' && ( isset( $result['status'] ) && $result['status'] !='error' && !isset($result['title']) ) ) {
+        $coupon_code = $this->wcmcd_send_coupons( $email, $current_language, $post_id ); 
+          
         if( !empty($coupon_code) ) {
           $result['coupon_code'] = $coupon_code;
         }

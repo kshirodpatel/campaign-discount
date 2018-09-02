@@ -18,6 +18,7 @@ jQuery(function($){
     var html;
     var Row;
     var RemoveButton;
+    var HiddenData;
 
     if( SelectedButton.parents('td.custom-field-wrap').find('input.wcmcd-validation-enable:checked').length > 0 ) {
       PlaceHolder = SelectedButton.parents('td.custom-field-wrap').find('.wcmcd-custom-field-placeholder').val();
@@ -41,15 +42,13 @@ jQuery(function($){
       SelectedButton.parents('td.custom-field-wrap').find('input.wcmcd-validation-enable').prop('checked', false); // Unchecks it
       SelectedButton.parents('td.custom-field-wrap').find('input.wcmcd-custom-field-validation').val('');
       html = '<input type="hidden" name="wcmcd_campaign_fields[name][]" value="'+CustomField+'">';
-      html += '<input type="hidden" name="wcmcd_campaign_fields[placeholder][]" value="'+PlaceHolder+'">';
-      html += '<input type="hidden" name="wcmcd_campaign_fields[validation][]" value="'+ValidationMessage+'">';
+      // html += '<input type="hidden" name="wcmcd_campaign_fields[placeholder][]" value="'+PlaceHolder+'">';
+      // html += '<input type="hidden" name="wcmcd_campaign_fields[validation][]" value="'+ValidationMessage+'">';
       RemoveButton = '<div class="wcmcd-remove-btn"></div>';
       ToggleButton = '<div class="wcmcd-toggle-btn"></div>';
       var TestData = SelectedButton.parents('td.custom-field-wrap').find('.wcmcd-hidden-custom-fields').html();
-      console.log(TestData);
-
   		//SelectedButton.parents('td.custom-field-wrap').find('.wcmcd-custom-fields-list ul').append('<li data-name="'+CustomField+'" data-required="" data-placeholder="'+PlaceHolder+'" data-validation="'+ValidationMessage+'">'+CustomField+RemoveButton+html+'</li>');
-      SelectedButton.parents('td.custom-field-wrap').find('.wcmcd-custom-fields-list ul').append('<li>'+ToggleButton+RemoveButton+'<h4>'+CustomField+'</h4></li>');
+      SelectedButton.parents('td.custom-field-wrap').find('.wcmcd-custom-fields-list ul').append('<li>'+ToggleButton+RemoveButton+'<h4>'+CustomField+'</h4>'+html+'</li>');
   	}
   	
   });
